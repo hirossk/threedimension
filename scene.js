@@ -93,6 +93,23 @@ renderer.setAnimationLoop(() => {
         }
     } else {
         debugInfo += "XR Session: Not Presenting";
+        // fallback: ブラウザの Gamepad API を参照して、コントローラーが見えているか確認
+        try {
+            const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+            const gpList = [];
+            for (let i = 0; i < gps.length; i++) {
+                const g = gps[i];
+                if (!g) continue;
+                gpList.push({ index: g.index, id: g.id, axes: g.axes ? Array.from(g.axes).map(v=>v.toFixed(2)) : [], buttons: g.buttons ? g.buttons.length : 0 });
+            }
+            if (gpList.length > 0) {
+                debugInfo += `\nGamepads:\n${JSON.stringify(gpList)}`;
+            } else {
+                debugInfo += `\nGamepads: none`;
+            }
+        } catch (e) {
+            debugInfo += `\nGamepads: error`;
+        }
     }
     
     // 毎フレームデバッグパネルを更新
@@ -120,11 +137,14 @@ export function updateDebugPanel(text) {
         debugPanel.material && debugPanel.material.map && debugPanel.material.map.dispose();
     }
     debugText = text;
-    debugPanel = createTextMesh(text, 40, '#000000');  // 黒色に変更
+    // 少し小さめのフォントサイズで中央寄りに表示
+    debugPanel = createTextMesh(text, 30, '#000000');  // 黒色に変更
     // カメラにアタッチして常に視界内に表示させる
-    // ローカル位置を設定（カメラの前方、左上あたり）
-    debugPanel.position.set(-0.8, 0.5, -1.2);
+    // 中央寄り・少し下に表示（ローカル座標）
+    debugPanel.position.set(0, 0.15, -1.0);
     debugPanel.rotation.set(0, 0, 0);
+    // 全体を縮小して見た目を小さくする
+    debugPanel.scale.set(0.6, 0.6, 0.6);
     camera.add(debugPanel);
 }
 
@@ -153,7 +173,9 @@ export function initControllers() {
     controller1.addEventListener('selectstart', onSelectStart);
     controller1.addEventListener('connected', (event) => {
         console.log('controller1 connected', event);
-        updateDebugPanel('Debug Info:\nController 1 connected');
+        // 詳細な接続情報を表示
+        const data = event && event.data ? event.data : event;
+        updateDebugPanel(`Debug Info:\nController 1 connected\n${JSON.stringify(data)}`);
     });
     controller1.addEventListener('disconnected', () => {
         console.log('controller1 disconnected');
@@ -165,7 +187,8 @@ export function initControllers() {
     controller2.addEventListener('selectstart', onSelectStart);
     controller2.addEventListener('connected', (event) => {
         console.log('controller2 connected', event);
-        updateDebugPanel('Debug Info:\nController 2 connected');
+        const data = event && event.data ? event.data : event;
+        updateDebugPanel(`Debug Info:\nController 2 connected\n${JSON.stringify(data)}`);
     });
     controller2.addEventListener('disconnected', () => {
         console.log('controller2 disconnected');
