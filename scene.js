@@ -22,8 +22,12 @@ scene.background = new THREE.Color(0x87CEEB);
 export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 // 初期位置を低く・後方に設定して問題が見えにくい距離にする
 camera.position.set(0, 0.6, 20);
-// カメラをシーンに追加（カメラに子を付けるため）
-scene.add(camera);
+// プレイヤー用の rig を作成してカメラはその子にする
+export const rig = new THREE.Group();
+rig.name = 'rig';
+rig.position.set(0, 0, 0);
+rig.add(camera);
+scene.add(rig);
 
 export const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -59,37 +63,79 @@ renderer.setAnimationLoop(() => {
             session.inputSources.forEach(inputSource => {
                 inputSourceCount++;
                 debugInfo += `Controller ${inputSource.handedness}: ${inputSource.gamepad ? "Connected" : "No Gamepad"}\n`;
-                
-                if (inputSource.gamepad) {
-                    const gamepad = inputSource.gamepad;
+
+                // 普通は inputSource.gamepad を使うが、ブラウザによっては未提供なので
+                // navigator.getGamepads() をフォールバックで参照する
+                let gamepad = inputSource.gamepad;
+                if (!gamepad && navigator.getGamepads) {
+                    try {
+                        const gps = navigator.getGamepads();
+                        // idやaxes長で可能性のある gamepad を探す（最初の有効なものを選択）
+                        for (let gi = 0; gi < gps.length; gi++) {
+                            const g = gps[gi];
+                            if (!g) continue;
+                            // 目安：axesを持っているものを優先
+                            if (g.axes && g.axes.length > 0) { gamepad = g; break; }
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+                if (gamepad) {
                     // 入力値の表示（全軸）
                     if (gamepad.axes) {
-                        debugInfo += `Axes: [${gamepad.axes.map(v => v.toFixed(2)).join(", ")}]\n`;
+                        debugInfo += `Axes: [${gamepad.axes.map(v => v.toFixed(2)).join(", ")} ]\n`;
+                    } else {
+                        debugInfo += `Axes: none\n`;
                     }
-                    
-                    // 左スティックの値を取得（プラットフォームによってインデックスが異なるため柔軟に扱う）
+
+                    // 自動軸検出: まだマッピングがなければ、スティックを動かしてもらい検出する
+                    if (!axisMapping) {
+                        detectionFrames++;
+                        const axes = gamepad.axes || [];
+                        const candidates = [];
+                        for (let ai = 0; ai < axes.length; ai++) {
+                            if (Math.abs(axes[ai]) > 0.15) candidates.push(ai);
+                        }
+                        if (candidates.length >= 2) {
+                            axisMapping = { x: candidates[0], z: candidates[1] };
+                            updateDebugPanel(`Debug Info:\nAxis mapping detected: x=${axisMapping.x}, z=${axisMapping.z}`);
+                            console.log('Axis mapping detected', axisMapping);
+                        } else if (detectionFrames > 120) {
+                            // 検出に失敗したら初期推定（2要素なら0/1、4要素なら2/3）
+                            if (axes.length >= 4) axisMapping = { x: 2, z: 3 };
+                            else if (axes.length >= 2) axisMapping = { x: 0, z: 1 };
+                            if (axisMapping) updateDebugPanel(`Debug Info:\nAxis mapping fallback: x=${axisMapping.x}, z=${axisMapping.z}`);
+                        }
+                    }
+
+                    // 左スティックの値を取得（自動検出したインデックスを使う）
                     const axes = gamepad.axes || [];
                     let moveX = 0;
                     let moveZ = 0;
-                    if (axes.length >= 4) {
-                        moveX = axes[2];
-                        moveZ = axes[3];
-                    } else if (axes.length >= 2) {
-                        moveX = axes[0];
-                        moveZ = axes[1];
+                    if (axisMapping) {
+                        moveX = axes[axisMapping.x] || 0;
+                        moveZ = axes[axisMapping.z] || 0;
+                    } else {
+                        // マッピング未定なら従来の推定を使う
+                        if (axes.length >= 4) { moveX = axes[2]; moveZ = axes[3]; }
+                        else if (axes.length >= 2) { moveX = axes[0]; moveZ = axes[1]; }
                     }
-                    
+
                     // デッドゾーン（小さな入力を無視）
                     if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
                         hasMovement = true;
-                        camera.position.x += moveX * MOVE_SPEED;
-                        camera.position.z += moveZ * MOVE_SPEED;
+                        // 左手のコントローラーだけで移動するようにする（handednessがleftの場合）
+                        if (inputSource.handedness === 'left' || !inputSource.handedness) {
+                            rig.position.x += moveX * MOVE_SPEED;
+                            rig.position.z += moveZ * MOVE_SPEED;
+                        }
                     }
                 }
             });
             
             debugInfo += `Input Sources: ${inputSourceCount}\n`;
-            debugInfo += `Camera: (${camera.position.x.toFixed(2)}, ${camera.position.z.toFixed(2)})\n`;
+            debugInfo += `Rig: (${rig.position.x.toFixed(2)}, ${rig.position.z.toFixed(2)})\n`;
             debugInfo += `Moving: ${hasMovement ? "YES" : "NO"}`;
         } else {
             debugInfo += "XR Session: No Active Session";
@@ -301,8 +347,8 @@ export function handleMovement() {
 
                     // 大きな動きのみ反応（デッドゾーン）
                     if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
-                        camera.position.x += moveX * MOVE_SPEED;
-                        camera.position.z += moveZ * MOVE_SPEED;
+                        rig.position.x += moveX * MOVE_SPEED;
+                        rig.position.z += moveZ * MOVE_SPEED;
                         console.log('Movement detected:', moveX, moveZ);
                     }
                 }
