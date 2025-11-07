@@ -62,7 +62,13 @@ renderer.setAnimationLoop(() => {
             
             session.inputSources.forEach(inputSource => {
                 inputSourceCount++;
-                debugInfo += `Controller ${inputSource.handedness}: ${inputSource.gamepad ? "Connected" : "No Gamepad"}\n`;
+                // 詳細情報を出す（handedness, profiles, targetRayMode, gamepadの有無）
+                try {
+                    const profiles = inputSource.profiles ? JSON.stringify(inputSource.profiles) : '[]';
+                    debugInfo += `Controller ${inputSource.handedness} profiles:${profiles} target:${inputSource.targetRayMode} gamepad:${inputSource.gamepad ? 'yes' : 'no'}\n`;
+                } catch (e) {
+                    debugInfo += `Controller ${inputSource.handedness}: info-error\n`;
+                }
 
                 // 普通は inputSource.gamepad を使うが、ブラウザによっては未提供なので
                 // navigator.getGamepads() をフォールバックで参照する
@@ -82,11 +88,14 @@ renderer.setAnimationLoop(() => {
                     }
                 }
                 if (gamepad) {
-                    // 入力値の表示（全軸）
-                    if (gamepad.axes) {
-                        debugInfo += `Axes: [${gamepad.axes.map(v => v.toFixed(2)).join(", ")} ]\n`;
-                    } else {
-                        debugInfo += `Axes: none\n`;
+                    // 入力値の表示（全軸）と gamepad の基本情報
+                    try {
+                        const gid = gamepad.id || 'unknown';
+                        const axesArr = gamepad.axes ? Array.from(gamepad.axes).map(v => v.toFixed(2)) : [];
+                        const btnCount = gamepad.buttons ? gamepad.buttons.length : 0;
+                        debugInfo += `Gamepad id:${gid} axes(${axesArr.length}):[${axesArr.join(', ')}] buttons:${btnCount}\n`;
+                    } catch (e) {
+                        debugInfo += `Gamepad: info-error\n`;
                     }
 
                     // 自動軸検出: まだマッピングがなければ、スティックを動かしてもらい検出する
