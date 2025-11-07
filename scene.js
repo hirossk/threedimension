@@ -195,14 +195,14 @@ export function updateDebugPanel(text) {
         debugPanel.material && debugPanel.material.map && debugPanel.material.map.dispose();
     }
     debugText = text;
-    // 少し小さめのフォントサイズで中央寄りに表示
-    debugPanel = createTextMesh(text, 30, '#000000');  // 黒色に変更
+    // デバッグパネルをより小さく・中心に表示
+    debugPanel = createTextMesh(text, 18, '#000000');  // フォントサイズを小さく
     // カメラにアタッチして常に視界内に表示させる
-    // 中央寄り・少し下に表示（ローカル座標）
-    debugPanel.position.set(0, 0.15, -1.0);
+    // 中央寄り・少し上に表示（ローカル座標）
+    debugPanel.position.set(0, 0.25, -0.8);
     debugPanel.rotation.set(0, 0, 0);
-    // 全体を縮小して見た目を小さくする
-    debugPanel.scale.set(0.6, 0.6, 0.6);
+    // 全体を縮小して控えめに表示
+    debugPanel.scale.set(0.35, 0.35, 0.35);
     camera.add(debugPanel);
 }
 
