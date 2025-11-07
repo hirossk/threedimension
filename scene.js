@@ -19,6 +19,8 @@ scene.background = new THREE.Color(0x87CEEB);
 export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 // 初期位置を低く・後方に設定して問題が見えにくい距離にする
 camera.position.set(0, 0.6, 20);
+// カメラをシーンに追加（カメラに子を付けるため）
+scene.add(camera);
 
 export const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -28,6 +30,14 @@ document.body.appendChild(VRButton.createButton(renderer));
 
 // コントローラーの初期化
 initControllers();
+
+// XR セッション開始 / 終了のイベント監視
+renderer.xr.addEventListener('sessionstart', () => {
+    updateDebugPanel('Debug Info:\nXR Session: Started');
+});
+renderer.xr.addEventListener('sessionend', () => {
+    updateDebugPanel('Debug Info:\nXR Session: Ended');
+});
 
 // デバッグ用の移動速度
 const MOVE_SPEED = 0.15; // 速度を上げました
@@ -54,9 +64,17 @@ renderer.setAnimationLoop(() => {
                         debugInfo += `Axes: [${gamepad.axes.map(v => v.toFixed(2)).join(", ")}]\n`;
                     }
                     
-                    // 左スティックの値を取得（axes[2]が左右、axes[3]が前後）
-                    const moveX = gamepad.axes[2] || 0;
-                    const moveZ = gamepad.axes[3] || 0;
+                    // 左スティックの値を取得（プラットフォームによってインデックスが異なるため柔軟に扱う）
+                    const axes = gamepad.axes || [];
+                    let moveX = 0;
+                    let moveZ = 0;
+                    if (axes.length >= 4) {
+                        moveX = axes[2];
+                        moveZ = axes[3];
+                    } else if (axes.length >= 2) {
+                        moveX = axes[0];
+                        moveZ = axes[1];
+                    }
                     
                     // デッドゾーン（小さな入力を無視）
                     if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
@@ -95,15 +113,19 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
 // デバッグパネルの作成と更新関数
 export function updateDebugPanel(text) {
+    // 既存のパネルを削除（親がある場合は親から外す）
     if (debugPanel) {
-        scene.remove(debugPanel);
+        if (debugPanel.parent) debugPanel.parent.remove(debugPanel);
+        debugPanel.geometry.dispose && debugPanel.geometry.dispose();
+        debugPanel.material && debugPanel.material.map && debugPanel.material.map.dispose();
     }
     debugText = text;
     debugPanel = createTextMesh(text, 40, '#000000');  // 黒色に変更
-    // カメラの位置から少し前に配置
-    debugPanel.position.set(-2, 2, -3);
-    debugPanel.rotation.y = 0; // 正面を向かせる
-    scene.add(debugPanel);
+    // カメラにアタッチして常に視界内に表示させる
+    // ローカル位置を設定（カメラの前方、左上あたり）
+    debugPanel.position.set(-0.8, 0.5, -1.2);
+    debugPanel.rotation.set(0, 0, 0);
+    camera.add(debugPanel);
 }
 
 // 初期デバッグパネルの作成
@@ -129,10 +151,26 @@ export function initControllers() {
     // コントローラーの追加
     controller1 = renderer.xr.getController(0);
     controller1.addEventListener('selectstart', onSelectStart);
+    controller1.addEventListener('connected', (event) => {
+        console.log('controller1 connected', event);
+        updateDebugPanel('Debug Info:\nController 1 connected');
+    });
+    controller1.addEventListener('disconnected', () => {
+        console.log('controller1 disconnected');
+        updateDebugPanel('Debug Info:\nController 1 disconnected');
+    });
     scene.add(controller1);
 
     controller2 = renderer.xr.getController(1);
     controller2.addEventListener('selectstart', onSelectStart);
+    controller2.addEventListener('connected', (event) => {
+        console.log('controller2 connected', event);
+        updateDebugPanel('Debug Info:\nController 2 connected');
+    });
+    controller2.addEventListener('disconnected', () => {
+        console.log('controller2 disconnected');
+        updateDebugPanel('Debug Info:\nController 2 disconnected');
+    });
     scene.add(controller2);
 
     // コントローラーモデルの追加
@@ -202,17 +240,25 @@ export function handleMovement() {
     session.inputSources.forEach(source => {
         if (source.gamepad) {
             const axes = source.gamepad.axes;
-            if (axes.length >= 4) {
-                const moveX = axes[2];  // 左右の移動
-                const moveZ = axes[3];  // 前後の移動
+                if (axes.length >= 2) {
+                    // 一部のプラットフォームはaxesが2要素（スティック）で返る
+                    let moveX = 0;
+                    let moveZ = 0;
+                    if (axes.length >= 4) {
+                        moveX = axes[2];
+                        moveZ = axes[3];
+                    } else {
+                        moveX = axes[0];
+                        moveZ = axes[1];
+                    }
 
-                // 大きな動きのみ反応（デッドゾーン）
-                if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
-                    camera.position.x += moveX * MOVE_SPEED;
-                    camera.position.z += moveZ * MOVE_SPEED;
-                    console.log('Movement detected:', moveX, moveZ);
+                    // 大きな動きのみ反応（デッドゾーン）
+                    if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
+                        camera.position.x += moveX * MOVE_SPEED;
+                        camera.position.z += moveZ * MOVE_SPEED;
+                        console.log('Movement detected:', moveX, moveZ);
+                    }
                 }
-            }
         }
     });
 }
