@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+import { createTextMesh } from './textMesh.js';
+
+// デバッグパネル用の変数
+let debugPanel = null;
+let debugText = "";
 
 // レイキャスター用の変数
 const raycaster = new THREE.Raycaster();
@@ -33,6 +38,9 @@ renderer.setAnimationLoop(() => {
     if (renderer.xr.isPresenting) {
         const session = renderer.xr.getSession();
         if (session) {
+            let debugInfo = "Debug Info:\n";
+            let hasMovement = false;
+            
             session.inputSources.forEach(inputSource => {
                 if (inputSource.gamepad) {
                     const gamepad = inputSource.gamepad;
@@ -40,8 +48,11 @@ renderer.setAnimationLoop(() => {
                     const moveX = gamepad.axes[2];
                     const moveZ = gamepad.axes[3];
                     
+                    debugInfo += `Stick: X=${moveX.toFixed(2)} Z=${moveZ.toFixed(2)}\n`;
+                    
                     // デッドゾーン（小さな入力を無視）
                     if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
+                        hasMovement = true;
                         // カメラの向きを取得
                         const cameraDirection = new THREE.Vector3();
                         camera.getWorldDirection(cameraDirection);
@@ -49,12 +60,16 @@ renderer.setAnimationLoop(() => {
                         // 移動方向を計算
                         camera.position.x += moveX * MOVE_SPEED;
                         camera.position.z += moveZ * MOVE_SPEED;
-                        
-                        // デバッグ用：移動を検知したことをコンソールに出力
-                        console.log('Moving:', { x: moveX, z: moveZ, pos: camera.position });
                     }
                 }
             });
+            
+            // カメラ位置情報を追加
+            debugInfo += `\nCamera:\nX=${camera.position.x.toFixed(2)}\nZ=${camera.position.z.toFixed(2)}\n`;
+            debugInfo += `Moving: ${hasMovement ? "YES" : "NO"}`;
+            
+            // デバッグパネルを更新
+            updateDebugPanel(debugInfo);
         }
     }
     
@@ -71,6 +86,22 @@ backLight.position.set(-5, 5, -5);
 scene.add(backLight);
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+// デバッグパネルの作成と更新関数
+export function updateDebugPanel(text) {
+    if (debugPanel) {
+        scene.remove(debugPanel);
+    }
+    debugText = text;
+    debugPanel = createTextMesh(text, 40, '#00FF00');
+    // カメラの位置から少し前に配置
+    debugPanel.position.set(-2, 2, -3);
+    debugPanel.rotation.y = 0; // 正面を向かせる
+    scene.add(debugPanel);
+}
+
+// 初期デバッグパネルの作成
+updateDebugPanel("Debug Info:\nWaiting for input...");
 
 // 地面
 const ground = new THREE.Mesh(
