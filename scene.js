@@ -6,6 +6,9 @@ import { createTextMesh } from './textMesh.js';
 // デバッグパネル用の変数
 let debugPanel = null;
 let debugText = "";
+// 軸マッピング自動検出
+let axisMapping = null; // { x: index, z: index }
+let detectionFrames = 0;
 
 // レイキャスター用の変数
 const raycaster = new THREE.Raycaster();
@@ -148,6 +151,25 @@ export function updateDebugPanel(text) {
     camera.add(debugPanel);
 }
 
+// ブラウザの Gamepad API をチェックして文字列で返す
+function detectGamepadsString() {
+    try {
+        const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gpList = [];
+        for (let i = 0; i < gps.length; i++) {
+            const g = gps[i];
+            if (!g) continue;
+            gpList.push({ index: g.index, id: g.id, axes: g.axes ? Array.from(g.axes).map(v=>v.toFixed(2)) : [], buttons: g.buttons ? g.buttons.length : 0 });
+        }
+        if (gpList.length > 0) {
+            return `Gamepads: ${JSON.stringify(gpList)}`;
+        }
+        return 'Gamepads: none';
+    } catch (e) {
+        return 'Gamepads: error';
+    }
+}
+
 // 初期デバッグパネルの作成
 updateDebugPanel("Debug Info:\nWaiting for input...");
 
@@ -175,7 +197,8 @@ export function initControllers() {
         console.log('controller1 connected', event);
         // 詳細な接続情報を表示
         const data = event && event.data ? event.data : event;
-        updateDebugPanel(`Debug Info:\nController 1 connected\n${JSON.stringify(data)}`);
+        const gpInfo = detectGamepadsString();
+        updateDebugPanel(`Debug Info:\nController 1 connected\n${JSON.stringify(data)}\n${gpInfo}`);
     });
     controller1.addEventListener('disconnected', () => {
         console.log('controller1 disconnected');
@@ -188,7 +211,8 @@ export function initControllers() {
     controller2.addEventListener('connected', (event) => {
         console.log('controller2 connected', event);
         const data = event && event.data ? event.data : event;
-        updateDebugPanel(`Debug Info:\nController 2 connected\n${JSON.stringify(data)}`);
+        const gpInfo = detectGamepadsString();
+        updateDebugPanel(`Debug Info:\nController 2 connected\n${JSON.stringify(data)}\n${gpInfo}`);
     });
     controller2.addEventListener('disconnected', () => {
         console.log('controller2 disconnected');
