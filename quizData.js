@@ -1,5 +1,5 @@
 export const quizData = [
-    { kanji: "漢字", readings: ["かんじ", "かんご", "もじ"], correct: 0 },
+    { kanji: "国語", readings: ["かんじ", "かんご", "こくご"], correct: 0 },
     { kanji: "読書", readings: ["どくしょ", "よみしょ", "とくしょ"], correct: 0 },
     { kanji: "勉強", readings: ["べんきょう", "べんこう", "けんきょう"], correct: 0 },
     { kanji: "先生", readings: ["せんせい", "さきなま", "せんじょう"], correct: 0 },
