@@ -132,18 +132,37 @@ export function handleMovement() {
     if (!session) return;
 
     for (const source of session.inputSources) {
-        if (source.gamepad) {
+        if (source.handedness === 'left' && source.gamepad) {
             const axes = source.gamepad.axes;
             if (axes.length >= 4) {
-                const speed = 0.1;
-                // カメラの向きに基づいて移動方向を計算
-                const angle = camera.rotation.y;
-                const moveX = axes[2] * speed;
-                const moveZ = axes[3] * speed;
+                // 移動速度を調整（必要に応じて変更可能）
+                const speed = 0.15;
                 
-                // カメラの向きに応じて移動方向を回転
-                camera.position.x += Math.cos(angle) * moveX - Math.sin(angle) * moveZ;
-                camera.position.z += Math.sin(angle) * moveX + Math.cos(angle) * moveZ;
+                // カメラの向きを取得（XZ平面での回転）
+                const cameraDirection = new THREE.Vector3();
+                camera.getWorldDirection(cameraDirection);
+                const angle = Math.atan2(cameraDirection.x, cameraDirection.z);
+
+                // スティックの入力値を取得（-1.0 から 1.0）
+                const moveX = axes[2]; // 左右
+                const moveZ = axes[3]; // 前後
+
+                // デッドゾーン（小さな入力を無視）
+                const deadzone = 0.1;
+                if (Math.abs(moveX) < deadzone && Math.abs(moveZ) < deadzone) {
+                    continue;
+                }
+
+                // 移動方向をカメラの向きに基づいて計算
+                const moveAngle = angle + Math.atan2(moveX, moveZ);
+                const magnitude = Math.min(Math.sqrt(moveX * moveX + moveZ * moveZ), 1.0);
+                
+                // 実際の移動を適用
+                camera.position.x -= Math.sin(moveAngle) * magnitude * speed;
+                camera.position.z -= Math.cos(moveAngle) * magnitude * speed;
+
+                // オプション：高さ（Y軸）の制限を設定
+                camera.position.y = Math.max(0.6, camera.position.y);
             }
         }
     }
