@@ -34,45 +34,51 @@ const MOVE_SPEED = 0.15; // 速度を上げました
 
 // アニメーションループ
 renderer.setAnimationLoop(() => {
-    // XRセッション中の移動処理
+    let debugInfo = "Debug Info:\n";
+    
     if (renderer.xr.isPresenting) {
         const session = renderer.xr.getSession();
         if (session) {
-            let debugInfo = "Debug Info:\n";
+            debugInfo += "XR Session: Active\n";
             let hasMovement = false;
+            let inputSourceCount = 0;
             
             session.inputSources.forEach(inputSource => {
+                inputSourceCount++;
+                debugInfo += `Controller ${inputSource.handedness}: ${inputSource.gamepad ? "Connected" : "No Gamepad"}\n`;
+                
                 if (inputSource.gamepad) {
                     const gamepad = inputSource.gamepad;
-                    // 左スティックの値を取得（axes[2]が左右、axes[3]が前後）
-                    const moveX = gamepad.axes[2];
-                    const moveZ = gamepad.axes[3];
+                    // 入力値の表示（全軸）
+                    if (gamepad.axes) {
+                        debugInfo += `Axes: [${gamepad.axes.map(v => v.toFixed(2)).join(", ")}]\n`;
+                    }
                     
-                    debugInfo += `Stick: X=${moveX.toFixed(2)} Z=${moveZ.toFixed(2)}\n`;
+                    // 左スティックの値を取得（axes[2]が左右、axes[3]が前後）
+                    const moveX = gamepad.axes[2] || 0;
+                    const moveZ = gamepad.axes[3] || 0;
                     
                     // デッドゾーン（小さな入力を無視）
                     if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
                         hasMovement = true;
-                        // カメラの向きを取得
-                        const cameraDirection = new THREE.Vector3();
-                        camera.getWorldDirection(cameraDirection);
-                        
-                        // 移動方向を計算
                         camera.position.x += moveX * MOVE_SPEED;
                         camera.position.z += moveZ * MOVE_SPEED;
                     }
                 }
             });
             
-            // カメラ位置情報を追加
-            debugInfo += `\nCamera:\nX=${camera.position.x.toFixed(2)}\nZ=${camera.position.z.toFixed(2)}\n`;
+            debugInfo += `Input Sources: ${inputSourceCount}\n`;
+            debugInfo += `Camera: (${camera.position.x.toFixed(2)}, ${camera.position.z.toFixed(2)})\n`;
             debugInfo += `Moving: ${hasMovement ? "YES" : "NO"}`;
-            
-            // デバッグパネルを更新
-            updateDebugPanel(debugInfo);
+        } else {
+            debugInfo += "XR Session: No Active Session";
         }
+    } else {
+        debugInfo += "XR Session: Not Presenting";
     }
     
+    // 毎フレームデバッグパネルを更新
+    updateDebugPanel(debugInfo);
     renderer.render(scene, camera);
 });
 
@@ -93,7 +99,7 @@ export function updateDebugPanel(text) {
         scene.remove(debugPanel);
     }
     debugText = text;
-    debugPanel = createTextMesh(text, 40, '#00FF00');
+    debugPanel = createTextMesh(text, 40, '#000000');  // 黒色に変更
     // カメラの位置から少し前に配置
     debugPanel.position.set(-2, 2, -3);
     debugPanel.rotation.y = 0; // 正面を向かせる
