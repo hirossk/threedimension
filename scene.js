@@ -7,7 +7,7 @@ import { createTextMesh } from './textMesh.js';
 let debugPanel = null;
 let debugText = "";
 // 軸マッピング自動検出
-let axisMapping = null; // { x: index, z: index }
+let axisMapping = { leftX: 2, leftZ: 3, rightX: 0, rightZ: 1 };
 let detectionFrames = 0;
 
 // レイキャスター用の変数
@@ -47,7 +47,8 @@ renderer.xr.addEventListener('sessionend', () => {
 });
 
 // デバッグ用の移動速度
-const MOVE_SPEED = 0.15; // 速度を上げました
+const MOVE_SPEED = 0.1; // 速度を上げました
+const DEAD_ZONE = 0.15;
 
 // アニメーションループ
 renderer.setAnimationLoop(() => {
@@ -87,55 +88,30 @@ renderer.setAnimationLoop(() => {
                         // ignore
                     }
                 }
-                if (gamepad) {
-                    // 入力値の表示（全軸）と gamepad の基本情報
+if (gamepad) {
                     try {
                         const gid = gamepad.id || 'unknown';
                         const axesArr = gamepad.axes ? Array.from(gamepad.axes).map(v => v.toFixed(2)) : [];
                         const btnCount = gamepad.buttons ? gamepad.buttons.length : 0;
-                        debugInfo += `Gamepad id:${gid} axes(${axesArr.length}):[${axesArr.join(', ')}] buttons:${btnCount}\n`;
+                        debugInfo += `Gamepad: ${gid}\n`;
+                        debugInfo += `Axes[${axesArr.length}]: [${axesArr.join(', ')}]\n`;
+                        debugInfo += `Buttons: ${btnCount}\n`;
                     } catch (e) {
                         debugInfo += `Gamepad: info-error\n`;
                     }
 
-                    // 自動軸検出: まだマッピングがなければ、スティックを動かしてもらい検出する
-                    if (!axisMapping) {
-                        detectionFrames++;
-                        const axes = gamepad.axes || [];
-                        const candidates = [];
-                        for (let ai = 0; ai < axes.length; ai++) {
-                            if (Math.abs(axes[ai]) > 0.15) candidates.push(ai);
-                        }
-                        if (candidates.length >= 2) {
-                            axisMapping = { x: candidates[0], z: candidates[1] };
-                            updateDebugPanel(`Debug Info:\nAxis mapping detected: x=${axisMapping.x}, z=${axisMapping.z}`);
-                            console.log('Axis mapping detected', axisMapping);
-                        } else if (detectionFrames > 120) {
-                            // 検出に失敗したら初期推定（2要素なら0/1、4要素なら2/3）
-                            if (axes.length >= 4) axisMapping = { x: 2, z: 3 };
-                            else if (axes.length >= 2) axisMapping = { x: 0, z: 1 };
-                            if (axisMapping) updateDebugPanel(`Debug Info:\nAxis mapping fallback: x=${axisMapping.x}, z=${axisMapping.z}`);
-                        }
-                    }
-
-                    // 左スティックの値を取得（自動検出したインデックスを使う）
+                    // 移動処理（左スティックを使用）
                     const axes = gamepad.axes || [];
-                    let moveX = 0;
-                    let moveZ = 0;
-                    if (axisMapping) {
-                        moveX = axes[axisMapping.x] || 0;
-                        moveZ = axes[axisMapping.z] || 0;
-                    } else {
-                        // マッピング未定なら従来の推定を使う
-                        if (axes.length >= 4) { moveX = axes[2]; moveZ = axes[3]; }
-                        else if (axes.length >= 2) { moveX = axes[0]; moveZ = axes[1]; }
-                    }
+                    if (axes.length >= 4) {
+                        // Quest 3の場合：axes[2]=左X, axes[3]=左Z
+                        const moveX = axes[axisMapping.leftX] || 0;
+                        const moveZ = axes[axisMapping.leftZ] || 0;
 
-                    // デッドゾーン（小さな入力を無視）
-                    if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
-                        hasMovement = true;
-                        // 左手のコントローラーだけで移動するようにする（handednessがleftの場合）
-                        if (inputSource.handedness === 'left' || !inputSource.handedness) {
+                        debugInfo += `Left Stick: X=${moveX.toFixed(2)}, Z=${moveZ.toFixed(2)}\n`;
+
+                        // デッドゾーン処理
+                        if (Math.abs(moveX) > DEAD_ZONE || Math.abs(moveZ) > DEAD_ZONE) {
+                            hasMovement = true;
                             rig.position.x += moveX * MOVE_SPEED;
                             rig.position.z += moveZ * MOVE_SPEED;
                         }
