@@ -74,19 +74,35 @@ renderer.setAnimationLoop(() => {
                 // 普通は inputSource.gamepad を使うが、ブラウザによっては未提供なので
                 // navigator.getGamepads() をフォールバックで参照する
                 let gamepad = inputSource.gamepad;
+                
+                // デバッグ: inputSource.gamepadの状態を表示
+                debugInfo += `inputSource.gamepad: ${gamepad ? 'exists' : 'null'}\n`;
+                
                 if (!gamepad && navigator.getGamepads) {
                     try {
                         const gps = navigator.getGamepads();
-                        // idやaxes長で可能性のある gamepad を探す（最初の有効なものを選択）
+                        debugInfo += `navigator.getGamepads: ${gps ? gps.length : 'null'} gamepads\n`;
+                        
+                        // 全てのgamepadをチェック
                         for (let gi = 0; gi < gps.length; gi++) {
                             const g = gps[gi];
-                            if (!g) continue;
+                            if (!g) {
+                                debugInfo += `  gp[${gi}]: null\n`;
+                                continue;
+                            }
+                            debugInfo += `  gp[${gi}]: ${g.id}, axes:${g.axes ? g.axes.length : 0}\n`;
                             // 目安：axesを持っているものを優先
-                            if (g.axes && g.axes.length > 0) { gamepad = g; break; }
+                            if (g.axes && g.axes.length > 0) { 
+                                gamepad = g; 
+                                debugInfo += `  -> Selected gp[${gi}]\n`;
+                                break; 
+                            }
                         }
                     } catch (e) {
-                        // ignore
+                        debugInfo += `getGamepads error: ${e.message}\n`;
                     }
+                } else if (gamepad) {
+                    debugInfo += `Using inputSource.gamepad directly\n`;
                 }
                 if (gamepad) {
                     try {
@@ -97,11 +113,13 @@ renderer.setAnimationLoop(() => {
                         debugInfo += `Axes[${axesArr.length}]: [${axesArr.join(', ')}]\n`;
                         debugInfo += `Buttons: ${btnCount}\n`;
                     } catch (e) {
-                        debugInfo += `Gamepad: info-error\n`;
+                        debugInfo += `Gamepad: info-error: ${e.message}\n`;
                     }
 
                     // 移動処理（左スティックを使用）
                     const axes = gamepad.axes || [];
+                    debugInfo += `axes.length: ${axes.length}\n`;
+                    
                     if (axes.length >= 4) {
                         // Quest 3の場合：axes[2]=左X, axes[3]=左Z
                         const moveX = axes[axisMapping.leftX] || 0;
@@ -115,7 +133,22 @@ renderer.setAnimationLoop(() => {
                             rig.position.x += moveX * MOVE_SPEED;
                             rig.position.z += moveZ * MOVE_SPEED;
                         }
+                    } else if (axes.length >= 2) {
+                        // 2軸しかない場合の処理
+                        const moveX = axes[0] || 0;
+                        const moveZ = axes[1] || 0;
+                        debugInfo += `Stick (2-axis): X=${moveX.toFixed(2)}, Z=${moveZ.toFixed(2)}\n`;
+                        
+                        if (Math.abs(moveX) > DEAD_ZONE || Math.abs(moveZ) > DEAD_ZONE) {
+                            hasMovement = true;
+                            rig.position.x += moveX * MOVE_SPEED;
+                            rig.position.z += moveZ * MOVE_SPEED;
+                        }
+                    } else {
+                        debugInfo += `Not enough axes for movement\n`;
                     }
+                } else {
+                    debugInfo += `No gamepad available\n`;
                 }
             });
             
