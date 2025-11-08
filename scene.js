@@ -6,7 +6,7 @@ import { createTextMesh } from './textMesh.js';
 // デバッグパネル用の変数
 let debugPanel = null;
 let debugText = "";
-// 軸マッピング自動検出
+// 軸マッピング自動検出 (Quest 3/Meta 標準)
 let axisMapping = { leftX: 2, leftZ: 3, rightX: 0, rightZ: 1 };
 let detectionFrames = 0;
 
@@ -59,100 +59,71 @@ renderer.setAnimationLoop(() => {
         if (session) {
             debugInfo += "XR Session: Active\n";
             let hasMovement = false;
-            let inputSourceCount = 0;
             
-            session.inputSources.forEach(inputSource => {
-                inputSourceCount++;
-                // 詳細情報を出す（handedness, profiles, targetRayMode, gamepadの有無）
-                try {
-                    const profiles = inputSource.profiles ? JSON.stringify(inputSource.profiles) : '[]';
-                    debugInfo += `Controller ${inputSource.handedness} profiles:${profiles} target:${inputSource.targetRayMode} gamepad:${inputSource.gamepad ? 'yes' : 'no'}\n`;
-                } catch (e) {
-                    debugInfo += `Controller ${inputSource.handedness}: info-error\n`;
-                }
+            // --- 修正点 1：controller.gamepad を直接ポーリング ---
+            
+            // 左手コントローラー（移動用）を特定
+            let moveController = null;
+            if (controller1 && controller1.handedness === 'left' && controller1.gamepad) {
+                moveController = controller1;
+            } else if (controller2 && controller2.handedness === 'left' && controller2.gamepad) {
+                moveController = controller2;
+            }
+            // 利き手が未設定（または両方右手）の場合は、見つかった方を使う (フォールバック)
+            else if (controller1 && controller1.gamepad) {
+                moveController = controller1;
+            } else if (controller2 && controller2.gamepad) {
+                moveController = controller2;
+            }
 
-                // 普通は inputSource.gamepad を使うが、ブラウザによっては未提供なので
-                // navigator.getGamepads() をフォールバックで参照する
-                let gamepad = inputSource.gamepad;
+
+            if (moveController) {
+                const gamepad = moveController.gamepad;
+                const axes = gamepad.axes;
                 
-                // デバッグ: inputSource.gamepadの状態を表示
-                debugInfo += `inputSource.gamepad: ${gamepad ? 'exists' : 'null'}\n`;
-                
-                if (!gamepad && navigator.getGamepads) {
-                    try {
-                        const gps = navigator.getGamepads();
-                        debugInfo += `navigator.getGamepads: ${gps ? gps.length : 'null'} gamepads\n`;
+                debugInfo += `Gamepad ${moveController.handedness || 'N/A'} Axes[${axes.length}]: [${Array.from(axes).map(v => v.toFixed(2)).join(', ')}]\n`;
+
+                if (axes.length >= 4) { // Quest 3 などの標準的なコントローラー
+                    const moveX = axes[axisMapping.leftX] || 0; // axes[2]
+                    const moveZ = axes[axisMapping.leftZ] || 0; // axes[3]
+                    debugInfo += `Left Stick: X=${moveX.toFixed(2)}, Z=${moveZ.toFixed(2)}\n`;
+
+                    if (Math.abs(moveX) > DEAD_ZONE || Math.abs(moveZ) > DEAD_ZONE) {
+                        hasMovement = true;
                         
-                        // 全てのgamepadをチェック
-                        for (let gi = 0; gi < gps.length; gi++) {
-                            const g = gps[gi];
-                            if (!g) {
-                                debugInfo += `  gp[${gi}]: null\n`;
-                                continue;
-                            }
-                            debugInfo += `  gp[${gi}]: ${g.id}, axes:${g.axes ? g.axes.length : 0}\n`;
-                            // 目安：axesを持っているものを優先
-                            if (g.axes && g.axes.length > 0) { 
-                                gamepad = g; 
-                                debugInfo += `  -> Selected gp[${gi}]\n`;
-                                break; 
-                            }
-                        }
-                    } catch (e) {
-                        debugInfo += `getGamepads error: ${e.message}\n`;
-                    }
-                } else if (gamepad) {
-                    debugInfo += `Using inputSource.gamepad directly\n`;
-                }
-                if (gamepad) {
-                    try {
-                        const gid = gamepad.id || 'unknown';
-                        const axesArr = gamepad.axes ? Array.from(gamepad.axes).map(v => v.toFixed(2)) : [];
-                        const btnCount = gamepad.buttons ? gamepad.buttons.length : 0;
-                        debugInfo += `Gamepad: ${gid}\n`;
-                        debugInfo += `Axes[${axesArr.length}]: [${axesArr.join(', ')}]\n`;
-                        debugInfo += `Buttons: ${btnCount}\n`;
-                    } catch (e) {
-                        debugInfo += `Gamepad: info-error: ${e.message}\n`;
-                    }
-
-                    // 移動処理（左スティックを使用）
-                    const axes = gamepad.axes || [];
-                    debugInfo += `axes.length: ${axes.length}\n`;
-                    
-                    if (axes.length >= 4) {
-                        // Quest 3の場合：axes[2]=左X, axes[3]=左Z
-                        const moveX = axes[axisMapping.leftX] || 0;
-                        const moveZ = axes[axisMapping.leftZ] || 0;
-
-                        debugInfo += `Left Stick: X=${moveX.toFixed(2)}, Z=${moveZ.toFixed(2)}\n`;
-
-                        // デッドゾーン処理
-                        if (Math.abs(moveX) > DEAD_ZONE || Math.abs(moveZ) > DEAD_ZONE) {
-                            hasMovement = true;
-                            rig.position.x += moveX * MOVE_SPEED;
-                            rig.position.z += moveZ * MOVE_SPEED;
-                        }
-                    } else if (axes.length >= 2) {
-                        // 2軸しかない場合の処理
-                        const moveX = axes[0] || 0;
-                        const moveZ = axes[1] || 0;
-                        debugInfo += `Stick (2-axis): X=${moveX.toFixed(2)}, Z=${moveZ.toFixed(2)}\n`;
+                        // --- 修正点 2：カメラの向きに基づいた移動 ---
                         
-                        if (Math.abs(moveX) > DEAD_ZONE || Math.abs(moveZ) > DEAD_ZONE) {
-                            hasMovement = true;
-                            rig.position.x += moveX * MOVE_SPEED;
-                            rig.position.z += moveZ * MOVE_SPEED;
-                        }
-                    } else {
-                        debugInfo += `Not enough axes for movement\n`;
+                        // カメラの向き（Y軸は無視）を取得
+                        const direction = new THREE.Vector3();
+                        camera.getWorldDirection(direction);
+                        direction.y = 0;
+                        direction.normalize();
+
+                        // 右方向のベクトルを計算
+                        const right = new THREE.Vector3();
+                        right.crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize();
+
+                        // rig (プレイヤー) の位置を更新
+                        // スティック奥 (moveZ < 0) で前進 (direction)
+                        // ※ VRのZ軸は手前が+のため、-moveZ を使う
+                        rig.position.addScaledVector(direction, -moveZ * MOVE_SPEED);
+                        // スティック右 (moveX > 0) で右移動 (right)
+                        rig.position.addScaledVector(right, moveX * MOVE_SPEED);
                     }
-                } else {
-                    debugInfo += `No gamepad available\n`;
                 }
+            } else {
+                debugInfo += `No controller.gamepad available for movement\n`;
+            }
+
+            // --- (古い session.inputSources.forEach ループ (移動処理) は削除) ---
+            
+            // デバッグ情報 (inputSources の生情報)
+            debugInfo += `Input Sources Count: ${session.inputSources.length}\n`;
+            session.inputSources.forEach(source => {
+                 debugInfo += `  Hand: ${source.handedness}, Gamepad: ${source.gamepad ? 'Yes' : 'No'}\n`;
             });
-            
-            debugInfo += `Input Sources: ${inputSourceCount}\n`;
+
+
             debugInfo += `Rig: (${rig.position.x.toFixed(2)}, ${rig.position.z.toFixed(2)})\n`;
             debugInfo += `Moving: ${hasMovement ? "YES" : "NO"}`;
         } else {
@@ -160,7 +131,7 @@ renderer.setAnimationLoop(() => {
         }
     } else {
         debugInfo += "XR Session: Not Presenting";
-        // fallback: ブラウザの Gamepad API を参照して、コントローラーが見えているか確認
+        // fallback: ブラウザの Gamepad API を参照
         try {
             const gps = navigator.getGamepads ? navigator.getGamepads() : [];
             const gpList = [];
@@ -201,7 +172,10 @@ export function updateDebugPanel(text) {
     if (debugPanel) {
         if (debugPanel.parent) debugPanel.parent.remove(debugPanel);
         debugPanel.geometry.dispose && debugPanel.geometry.dispose();
-        debugPanel.material && debugPanel.material.map && debugPanel.material.map.dispose();
+        if (debugPanel.material) {
+            debugPanel.material.map && debugPanel.material.map.dispose();
+            debugPanel.material.dispose();
+        }
     }
     debugText = text;
     // デバッグパネルをより小さく・中心に表示
@@ -215,7 +189,7 @@ export function updateDebugPanel(text) {
     camera.add(debugPanel);
 }
 
-// ブラウザの Gamepad API をチェックして文字列で返す
+// ブラウザの Gamepad API をチェックして文字列で返す (WebXRとは別)
 function detectGamepadsString() {
     try {
         const gps = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -259,13 +233,21 @@ export function initControllers() {
     controller1.addEventListener('selectstart', onSelectStart);
     controller1.addEventListener('connected', (event) => {
         console.log('controller1 connected', event);
-        // 詳細な接続情報を表示
+        
+        // --- 修正点 3：event.data から gamepad と handedness をアタッチ ---
+        if (event.data && event.data.gamepad) {
+            controller1.gamepad = event.data.gamepad;
+            controller1.handedness = event.data.handedness; // 利き手情報も保存
+        }
+
         const data = event && event.data ? event.data : event;
         const gpInfo = detectGamepadsString();
         updateDebugPanel(`Debug Info:\nController 1 connected\n${JSON.stringify(data)}\n${gpInfo}`);
     });
     controller1.addEventListener('disconnected', () => {
         console.log('controller1 disconnected');
+        controller1.gamepad = null; // 切断時にクリア
+        controller1.handedness = null;
         updateDebugPanel('Debug Info:\nController 1 disconnected');
     });
     scene.add(controller1);
@@ -274,12 +256,21 @@ export function initControllers() {
     controller2.addEventListener('selectstart', onSelectStart);
     controller2.addEventListener('connected', (event) => {
         console.log('controller2 connected', event);
+
+        // --- 修正点 4：controller2 にも同様の処理を追加 ---
+        if (event.data && event.data.gamepad) {
+            controller2.gamepad = event.data.gamepad;
+            controller2.handedness = event.data.handedness; // 利き手情報も保存
+        }
+
         const data = event && event.data ? event.data : event;
         const gpInfo = detectGamepadsString();
         updateDebugPanel(`Debug Info:\nController 2 connected\n${JSON.stringify(data)}\n${gpInfo}`);
     });
     controller2.addEventListener('disconnected', () => {
         console.log('controller2 disconnected');
+        controller2.gamepad = null; // 切断時にクリア
+        controller2.handedness = null;
         updateDebugPanel('Debug Info:\nController 2 disconnected');
     });
     scene.add(controller2);
@@ -317,6 +308,7 @@ function onSelectStart(event) {
         const intersection = intersections[0];
         const object = intersection.object;
         if (object.userData && object.userData.isAnswer) {
+            // 動的インポートを使用して quizController の循環参照を回避 (推奨)
             import('./quizController.js').then(module => {
                 module.markAnswer(object);
             });
@@ -343,33 +335,8 @@ function getIntersections(controller) {
 
 // 移動システムの実装（シンプル化）
 export function handleMovement() {
-    if (!renderer.xr.isPresenting) return;
-
-    const session = renderer.xr.getSession();
-    if (!session) return;
-
-    session.inputSources.forEach(source => {
-        if (source.gamepad) {
-            const axes = source.gamepad.axes;
-                if (axes.length >= 2) {
-                    // 一部のプラットフォームはaxesが2要素（スティック）で返る
-                    let moveX = 0;
-                    let moveZ = 0;
-                    if (axes.length >= 4) {
-                        moveX = axes[2];
-                        moveZ = axes[3];
-                    } else {
-                        moveX = axes[0];
-                        moveZ = axes[1];
-                    }
-
-                    // 大きな動きのみ反応（デッドゾーン）
-                    if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
-                        rig.position.x += moveX * MOVE_SPEED;
-                        rig.position.z += moveZ * MOVE_SPEED;
-                        console.log('Movement detected:', moveX, moveZ);
-                    }
-                }
-        }
-    });
+    // --- 修正点 5：この関数のロジックは setAnimationLoop 内に統合されました ---
+    // main.js など外部からこの関数を呼び出す必要はなくなりました。
+    // もし呼び出している場合は、その呼び出しを削除してください。
+    // console.log('handleMovement() is deprecated. Movement is handled in setAnimationLoop.');
 }
