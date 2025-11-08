@@ -47,7 +47,7 @@ renderer.xr.addEventListener('sessionend', () => {
 });
 
 // デバッグ用の移動速度
-const MOVE_SPEED = 0.1; // 速度を上げました
+const MOVE_SPEED = 0.1;
 const DEAD_ZONE = 0.15;
 
 // アニメーションループ
@@ -116,7 +116,8 @@ renderer.setAnimationLoop(() => {
                             rig.position.z += moveZ * MOVE_SPEED;
                         }
                     }
-                }            });
+                }
+            });
             
             debugInfo += `Input Sources: ${inputSourceCount}\n`;
             debugInfo += `Rig: (${rig.position.x.toFixed(2)}, ${rig.position.z.toFixed(2)})\n`;
