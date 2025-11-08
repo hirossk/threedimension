@@ -88,7 +88,7 @@ renderer.setAnimationLoop(() => {
                         // ignore
                     }
                 }
-if (gamepad) {
+                if (gamepad) {
                     try {
                         const gid = gamepad.id || 'unknown';
                         const axesArr = gamepad.axes ? Array.from(gamepad.axes).map(v => v.toFixed(2)) : [];
@@ -116,8 +116,7 @@ if (gamepad) {
                             rig.position.z += moveZ * MOVE_SPEED;
                         }
                     }
-                }
-            });
+                }            });
             
             debugInfo += `Input Sources: ${inputSourceCount}\n`;
             debugInfo += `Rig: (${rig.position.x.toFixed(2)}, ${rig.position.z.toFixed(2)})\n`;
