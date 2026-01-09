@@ -170,15 +170,12 @@ export function initControllers() {
     controller1 = renderer.xr.getController(0);
     controller1.addEventListener('selectstart', onSelectStart);
     controller1.addEventListener('connected', (event) => {
-        console.log('controller1 connected', event);
-        
         if (event.data && event.data.gamepad) {
             controller1.gamepad = event.data.gamepad;
             controller1.handedness = event.data.handedness;
         }
     });
     controller1.addEventListener('disconnected', () => {
-        console.log('controller1 disconnected');
         controller1.gamepad = null;
         controller1.handedness = null;
     });
@@ -187,15 +184,12 @@ export function initControllers() {
     controller2 = renderer.xr.getController(1);
     controller2.addEventListener('selectstart', onSelectStart);
     controller2.addEventListener('connected', (event) => {
-        console.log('controller2 connected', event);
-
         if (event.data && event.data.gamepad) {
             controller2.gamepad = event.data.gamepad;
             controller2.handedness = event.data.handedness;
         }
     });
     controller2.addEventListener('disconnected', () => {
-        console.log('controller2 disconnected');
         controller2.gamepad = null;
         controller2.handedness = null;
     });
