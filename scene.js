@@ -53,15 +53,15 @@ const DEAD_ZONE = 0.15;
 // アニメーションループ
 renderer.setAnimationLoop(() => {
     let debugInfo = "Debug Info:\n";
-    
+
     if (renderer.xr.isPresenting) {
         const session = renderer.xr.getSession();
         if (session) {
             debugInfo += "XR Session: Active\n";
             let hasMovement = false;
-            
+
             // --- 修正点 1：controller.gamepad を直接ポーリング ---
-            
+
             // 左手コントローラー（移動用）を特定
             let moveController = null;
             if (controller1 && controller1.handedness === 'left' && controller1.gamepad) {
@@ -80,7 +80,7 @@ renderer.setAnimationLoop(() => {
             if (moveController) {
                 const gamepad = moveController.gamepad;
                 const axes = gamepad.axes;
-                
+
                 debugInfo += `Gamepad ${moveController.handedness || 'N/A'} Axes[${axes.length}]: [${Array.from(axes).map(v => v.toFixed(2)).join(', ')}]\n`;
 
                 if (axes.length >= 4) { // Quest 3 などの標準的なコントローラー
@@ -90,9 +90,9 @@ renderer.setAnimationLoop(() => {
 
                     if (Math.abs(moveX) > DEAD_ZONE || Math.abs(moveZ) > DEAD_ZONE) {
                         hasMovement = true;
-                        
+
                         // --- 修正点 2：カメラの向きに基づいた移動 ---
-                        
+
                         // カメラの向き（Y軸は無視）を取得
                         const direction = new THREE.Vector3();
                         camera.getWorldDirection(direction);
@@ -116,11 +116,43 @@ renderer.setAnimationLoop(() => {
             }
 
             // --- (古い session.inputSources.forEach ループ (移動処理) は削除) ---
-            
+
+            // 右スティックで回転（右手コントローラーを特定）
+            let rotateController = null;
+            if (controller1 && controller1.handedness === 'right' && controller1.gamepad) {
+                rotateController = controller1;
+            } else if (controller2 && controller2.handedness === 'right' && controller2.gamepad) {
+                rotateController = controller2;
+            }
+
+            if (rotateController) {
+                const gamepad = rotateController.gamepad;
+                const axes = gamepad.axes;
+
+                if (axes.length >= 2) {
+                    const rotateX = axes[0]; // 右スティック左右
+
+                    if (Math.abs(rotateX) > DEAD_ZONE) {
+                        // rigをY軸回転（スナップターン or スムーズターン）
+                        rig.rotation.y -= rotateX * 0.02; // 感度調整可能
+                    }
+                }
+            }
+            // レイの向きをデバッグ表示
+            if (controller1) {
+                const rayDir = new THREE.Vector3(0, 0, -1);
+                rayDir.applyMatrix4(controller1.matrixWorld);
+                debugInfo += `Ray1: (${rayDir.x.toFixed(2)}, ${rayDir.y.toFixed(2)}, ${rayDir.z.toFixed(2)})\n`;
+            }
+            if (controller2) {
+                const rayDir = new THREE.Vector3(0, 0, -1);
+                rayDir.applyMatrix4(controller2.matrixWorld);
+                debugInfo += `Ray2: (${rayDir.x.toFixed(2)}, ${rayDir.y.toFixed(2)}, ${rayDir.z.toFixed(2)})\n`;
+            }
             // デバッグ情報 (inputSources の生情報)
             debugInfo += `Input Sources Count: ${session.inputSources.length}\n`;
             session.inputSources.forEach(source => {
-                 debugInfo += `  Hand: ${source.handedness}, Gamepad: ${source.gamepad ? 'Yes' : 'No'}\n`;
+                debugInfo += `  Hand: ${source.handedness}, Gamepad: ${source.gamepad ? 'Yes' : 'No'}\n`;
             });
 
 
@@ -138,7 +170,7 @@ renderer.setAnimationLoop(() => {
             for (let i = 0; i < gps.length; i++) {
                 const g = gps[i];
                 if (!g) continue;
-                gpList.push({ index: g.index, id: g.id, axes: g.axes ? Array.from(g.axes).map(v=>v.toFixed(2)) : [], buttons: g.buttons ? g.buttons.length : 0 });
+                gpList.push({ index: g.index, id: g.id, axes: g.axes ? Array.from(g.axes).map(v => v.toFixed(2)) : [], buttons: g.buttons ? g.buttons.length : 0 });
             }
             if (gpList.length > 0) {
                 debugInfo += `\nGamepads:\n${JSON.stringify(gpList)}`;
@@ -149,7 +181,7 @@ renderer.setAnimationLoop(() => {
             debugInfo += `\nGamepads: error`;
         }
     }
-    
+
     // 毎フレームデバッグパネルを更新
     updateDebugPanel(debugInfo);
     renderer.render(scene, camera);
@@ -197,7 +229,7 @@ function detectGamepadsString() {
         for (let i = 0; i < gps.length; i++) {
             const g = gps[i];
             if (!g) continue;
-            gpList.push({ index: g.index, id: g.id, axes: g.axes ? Array.from(g.axes).map(v=>v.toFixed(2)) : [], buttons: g.buttons ? g.buttons.length : 0 });
+            gpList.push({ index: g.index, id: g.id, axes: g.axes ? Array.from(g.axes).map(v => v.toFixed(2)) : [], buttons: g.buttons ? g.buttons.length : 0 });
         }
         if (gpList.length > 0) {
             return `Gamepads: ${JSON.stringify(gpList)}`;
@@ -233,7 +265,7 @@ export function initControllers() {
     controller1.addEventListener('selectstart', onSelectStart);
     controller1.addEventListener('connected', (event) => {
         console.log('controller1 connected', event);
-        
+
         // --- 修正点 3：event.data から gamepad と handedness をアタッチ ---
         if (event.data && event.data.gamepad) {
             controller1.gamepad = event.data.gamepad;
@@ -277,7 +309,7 @@ export function initControllers() {
 
     // コントローラーモデルの追加
     const controllerModelFactory = new XRControllerModelFactory();
-    
+
     const controllerGrip1 = renderer.xr.getControllerGrip(0);
     controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
     scene.add(controllerGrip1);
@@ -321,7 +353,7 @@ function getIntersections(controller) {
     tempMatrix.identity().extractRotation(controller.matrixWorld);
     raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-    
+
     // シーン内の全オブジェクトから、userData.isAnswerを持つものをフィルタリング
     const answerObjects = [];
     scene.traverse((object) => {
@@ -329,7 +361,7 @@ function getIntersections(controller) {
             answerObjects.push(object);
         }
     });
-    
+
     return raycaster.intersectObjects(answerObjects);
 }
 
