@@ -200,25 +200,8 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
 // デバッグパネルの作成と更新関数
 export function updateDebugPanel(text) {
-    // 既存のパネルを削除（親がある場合は親から外す）
-    if (debugPanel) {
-        if (debugPanel.parent) debugPanel.parent.remove(debugPanel);
-        debugPanel.geometry.dispose && debugPanel.geometry.dispose();
-        if (debugPanel.material) {
-            debugPanel.material.map && debugPanel.material.map.dispose();
-            debugPanel.material.dispose();
-        }
-    }
-    debugText = text;
-    // デバッグパネルをより小さく・中心に表示
-    debugPanel = createTextMesh(text, 18, '#000000');  // フォントサイズを小さく
-    // カメラにアタッチして常に視界内に表示させる
-    // 中央寄り・少し上に表示（ローカル座標）
-    debugPanel.position.set(0, 0.25, -0.8);
-    debugPanel.rotation.set(0, 0, 0);
-    // 全体を縮小して控えめに表示
-    debugPanel.scale.set(0.35, 0.35, 0.35);
-    camera.add(debugPanel);
+    // Debug Info を無効化（UI上に何も表示しない）
+    return;
 }
 
 // ブラウザの Gamepad API をチェックして文字列で返す (WebXRとは別)
@@ -241,7 +224,7 @@ function detectGamepadsString() {
 }
 
 // 初期デバッグパネルの作成
-updateDebugPanel("Debug Info:\nWaiting for input...");
+// Debug Info は無効化中のため初期表示は行わない
 
 // 地面
 const ground = new THREE.Mesh(
@@ -264,7 +247,7 @@ export function initControllers() {
     controller1 = renderer.xr.getController(0);
     controller1.addEventListener('selectstart', onSelectStart);
     controller1.addEventListener('connected', (event) => {
-        console.log('controller1 connected', event);
+        // Debug logs disabled
 
         // --- 修正点 3：event.data から gamepad と handedness をアタッチ ---
         if (event.data && event.data.gamepad) {
@@ -277,7 +260,7 @@ export function initControllers() {
         updateDebugPanel(`Debug Info:\nController 1 connected\n${JSON.stringify(data)}\n${gpInfo}`);
     });
     controller1.addEventListener('disconnected', () => {
-        console.log('controller1 disconnected');
+        // Debug logs disabled
         controller1.gamepad = null; // 切断時にクリア
         controller1.handedness = null;
         updateDebugPanel('Debug Info:\nController 1 disconnected');
@@ -287,7 +270,7 @@ export function initControllers() {
     controller2 = renderer.xr.getController(1);
     controller2.addEventListener('selectstart', onSelectStart);
     controller2.addEventListener('connected', (event) => {
-        console.log('controller2 connected', event);
+        // Debug logs disabled
 
         // --- 修正点 4：controller2 にも同様の処理を追加 ---
         if (event.data && event.data.gamepad) {
@@ -300,7 +283,7 @@ export function initControllers() {
         updateDebugPanel(`Debug Info:\nController 2 connected\n${JSON.stringify(data)}\n${gpInfo}`);
     });
     controller2.addEventListener('disconnected', () => {
-        console.log('controller2 disconnected');
+        // Debug logs disabled
         controller2.gamepad = null; // 切断時にクリア
         controller2.handedness = null;
         updateDebugPanel('Debug Info:\nController 2 disconnected');
