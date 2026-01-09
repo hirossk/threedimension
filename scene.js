@@ -40,6 +40,36 @@ document.body.appendChild(VRButton.createButton(renderer));
 // コントローラーの初期化
 initControllers();
 
+// マウスクリックでの選択を追加（PC用）
+const mouse = new THREE.Vector2();
+renderer.domElement.addEventListener('click', onMouseClick);
+
+function onMouseClick(event) {
+    // マウス座標を正規化デバイス座標に変換 (-1 to +1)
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // カメラからレイキャスト
+    raycaster.setFromCamera(mouse, camera);
+
+    // 選択肢のオブジェクトを取得
+    const answerObjects = [];
+    scene.traverse((object) => {
+        if (object.userData && object.userData.isAnswer) {
+            answerObjects.push(object);
+        }
+    });
+
+    const intersects = raycaster.intersectObjects(answerObjects);
+    if (intersects.length > 0) {
+        const object = intersects[0].object;
+        // 動的インポートを使用して quizController の循環参照を回避
+        import('./quizController.js').then(module => {
+            module.markAnswer(object);
+        });
+    }
+}
+
 // デバッグ用の移動速度
 const MOVE_SPEED = 0.1;
 const DEAD_ZONE = 0.15;
