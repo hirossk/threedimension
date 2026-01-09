@@ -1,7 +1,7 @@
 import { scene, camera, renderer, handleResize } from './scene.js';
 import { createInfoPanel } from './ui.js';
 import { displayQuestion } from './quizController.js';
-import { updateMovement, addControllerToScene } from './input.js';
+// import { updateMovement, addControllerToScene } from './input.js';
 
 // UI 作成
 createInfoPanel();
@@ -14,7 +14,7 @@ addControllerToScene(scene);
 
 // レンダーループ
 renderer.setAnimationLoop(() => {
-    updateMovement();
+    // updateMovement();
     renderer.render(scene, camera);
 });
 
