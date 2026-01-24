@@ -53,17 +53,14 @@ export const camera = new THREE.PerspectiveCamera(
     0.1,
     1000
 );
-// 初期位置を設定
-camera.position.set(
-    cameraConfig.startPosition.x,
-    cameraConfig.startPosition.y,
-    cameraConfig.startPosition.z
-);
+// カメラはrigの中心に配置（yは目の高さのみ）
+camera.position.set(0, cameraConfig.startPosition.y, 0);
 
 // プレイヤー用の rig を作成してカメラはその子にする
 export const rig = new THREE.Group();
 rig.name = 'rig';
-rig.position.set(0, 0, 0);
+// rigの位置を初期位置に設定（xとzはrigで管理）
+rig.position.set(cameraConfig.startPosition.x, 0, cameraConfig.startPosition.z);
 rig.add(camera);
 scene.add(rig);
 
