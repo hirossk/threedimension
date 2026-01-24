@@ -194,7 +194,7 @@ renderer.setAnimationLoop(() => {
 
                         // 右方向のベクトルを計算
                         const right = new THREE.Vector3();
-                        right.crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize();
+                        right.crossVectors(direction, new THREE.Vector3(0, 1, 0)).normalize();
 
                         // rig (プレイヤー) の位置を更新
                         // スティック奥 (moveZ < 0) で前進 (direction)
