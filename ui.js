@@ -38,7 +38,7 @@ export function createInfoPanel() {
     scoreDiv.style.fontSize = '20px';
     scoreDiv.style.fontWeight = 'bold';
     scoreDiv.style.color = '#FFD700';
-    scoreDiv.textContent = 'v0.18スコア: 0';
+    scoreDiv.textContent = 'v0.19スコア: 0';
     info.appendChild(scoreDiv);
 
     const controls = document.createElement('div');

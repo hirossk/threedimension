@@ -3,9 +3,8 @@ import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 
 // 軸マッピング (Quest 3/Meta 標準)
-// 左コントローラー: axes[2]=X, axes[3]=Z
-// 右コントローラー: axes[0]=X, axes[1]=Z
-let axisMapping = { leftX: 2, leftZ: 3, rightX: 0, rightZ: 1 };
+// 各コントローラーは独自のgamepadを持ち、サムスティックは axes[2]=X, axes[3]=Z
+let axisMapping = { thumbstickX: 2, thumbstickZ: 3 };
 
 // レイキャスター用の変数
 const raycaster = new THREE.Raycaster();
@@ -119,8 +118,8 @@ renderer.setAnimationLoop(() => {
                 const axes = gamepad.axes;
 
                 if (axes.length >= 4) { // Quest 3 などの標準的なコントローラー
-                    const moveX = axes[axisMapping.leftX] || 0; // axes[2]
-                    const moveZ = axes[axisMapping.leftZ] || 0; // axes[3]
+                    const moveX = axes[axisMapping.thumbstickX] || 0; // axes[2]
+                    const moveZ = axes[axisMapping.thumbstickZ] || 0; // axes[3]
 
                     if (Math.abs(moveX) > DEAD_ZONE || Math.abs(moveZ) > DEAD_ZONE) {
                         // カメラの向き（Y軸は無視）を取得
@@ -154,9 +153,9 @@ renderer.setAnimationLoop(() => {
             if (rotateController) {
                 const gamepad = rotateController.gamepad;
                 const axes = gamepad.axes;
-                
-                if (axes.length >= 2) {
-                    const rotateX = axes[axisMapping.rightX]; // 右スティック左右 (axes[0])
+
+                if (axes.length >= 4) {
+                    const rotateX = axes[axisMapping.thumbstickX]; // 右スティック左右 (axes[2])
                     
                     if (Math.abs(rotateX) > DEAD_ZONE) {
                         // rigをY軸回転（スナップターン or スムーズターン）
