@@ -3,6 +3,8 @@ import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 
 // 軸マッピング (Quest 3/Meta 標準)
+// 左コントローラー: axes[2]=X, axes[3]=Z
+// 右コントローラー: axes[0]=X, axes[1]=Z
 let axisMapping = { leftX: 2, leftZ: 3, rightX: 0, rightZ: 1 };
 
 // レイキャスター用の変数
@@ -154,7 +156,7 @@ renderer.setAnimationLoop(() => {
                 const axes = gamepad.axes;
                 
                 if (axes.length >= 2) {
-                    const rotateX = axes[0]; // 右スティック左右
+                    const rotateX = axes[axisMapping.rightX]; // 右スティック左右 (axes[0])
                     
                     if (Math.abs(rotateX) > DEAD_ZONE) {
                         // rigをY軸回転（スナップターン or スムーズターン）
@@ -209,7 +211,7 @@ export function initControllers() {
         controller1.gamepad = null;
         controller1.handedness = null;
     });
-    rig.add(controller1);
+    scene.add(controller1);
 
     controller2 = renderer.xr.getController(1);
     controller2.addEventListener('selectstart', onSelectStart);
@@ -223,18 +225,18 @@ export function initControllers() {
         controller2.gamepad = null;
         controller2.handedness = null;
     });
-    rig.add(controller2);
+    scene.add(controller2);
 
     // コントローラーモデルの追加
     const controllerModelFactory = new XRControllerModelFactory();
     
     const controllerGrip1 = renderer.xr.getControllerGrip(0);
     controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
-    rig.add(controllerGrip1);
+    scene.add(controllerGrip1);
 
     const controllerGrip2 = renderer.xr.getControllerGrip(1);
     controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
-    rig.add(controllerGrip2);
+    scene.add(controllerGrip2);
 
     // レイ表示用の線（明るい緑で見やすく）
     const geometry = new THREE.BufferGeometry().setFromPoints([
