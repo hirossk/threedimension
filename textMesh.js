@@ -22,7 +22,7 @@ import { textPanelColors } from './config.js';
 export function createTextMesh(text, size, color) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    canvas.width = 512;
+    canvas.width = 640;
     canvas.height = 256;
 
     // ============================================================
@@ -86,7 +86,7 @@ export function createTextMesh(text, size, color) {
         map: texture,
         side: THREE.DoubleSide  // 両面表示
     });
-    const geometry = new THREE.PlaneGeometry(2, 1);
+    const geometry = new THREE.PlaneGeometry(2.5, 1);
 
     return new THREE.Mesh(geometry, material);
 }

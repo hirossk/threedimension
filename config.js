@@ -310,7 +310,7 @@ export const uiText = {
     scoreFormat: 'スコア: {score}/{total}',
 
     // バージョン表示
-    version: 'v1.0',
+    version: 'v1.0a',
 
     // PC操作説明
     pcControls: 'PC: WASD移動 / QE左右回転 / クリックで回答',
