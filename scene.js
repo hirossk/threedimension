@@ -211,7 +211,7 @@ export function initControllers() {
         controller1.gamepad = null;
         controller1.handedness = null;
     });
-    scene.add(controller1);
+    rig.add(controller1);
 
     controller2 = renderer.xr.getController(1);
     controller2.addEventListener('selectstart', onSelectStart);
@@ -225,18 +225,18 @@ export function initControllers() {
         controller2.gamepad = null;
         controller2.handedness = null;
     });
-    scene.add(controller2);
+    rig.add(controller2);
 
     // コントローラーモデルの追加
     const controllerModelFactory = new XRControllerModelFactory();
     
     const controllerGrip1 = renderer.xr.getControllerGrip(0);
     controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
-    scene.add(controllerGrip1);
+    rig.add(controllerGrip1);
 
     const controllerGrip2 = renderer.xr.getControllerGrip(1);
     controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
-    scene.add(controllerGrip2);
+    rig.add(controllerGrip2);
 
     // レイ表示用の線（明るい緑で見やすく）
     const geometry = new THREE.BufferGeometry().setFromPoints([
