@@ -1,6 +1,25 @@
+// ============================================================
+// scene.js - 3Dシーンの設定
+// ============================================================
+// Three.jsのシーン、カメラ、レンダラー、照明を管理します。
+// 色や位置の設定は config.js で変更できます。
+// ============================================================
+
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+
+// ============================================================
+// config.js から設定を読み込み
+// ============================================================
+import {
+    colors,
+    lighting,
+    camera as cameraConfig,
+    movement,
+    gameSettings,
+    wallSettings
+} from './config.js';
 
 // 軸マッピング (Quest 3/Meta 標準)
 // 各コントローラーは独自のgamepadを持ち、サムスティックは axes[2]=X, axes[3]=Z
@@ -17,13 +36,29 @@ window.addEventListener('keydown', (e) => keys[e.key] = true);
 window.addEventListener('keyup', (e) => keys[e.key] = false);
 let cameraRotationY = 0;
 
-// シーン、カメラ、レンダラーを初期化してエクスポートする
+// ============================================================
+// シーンの作成
+// ============================================================
+// Step 2 で変更: colors.skyColor（空の色）
+// ============================================================
 export const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB);
+scene.background = new THREE.Color(colors.skyColor);
 
-export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-// 初期位置を低く・後方に設定して問題が見えにくい距離にする
-camera.position.set(0, 0.6, 20);
+// ============================================================
+// カメラの作成
+// ============================================================
+export const camera = new THREE.PerspectiveCamera(
+    cameraConfig.fov,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
+// 初期位置を設定
+camera.position.set(
+    cameraConfig.startPosition.x,
+    cameraConfig.startPosition.y,
+    cameraConfig.startPosition.z
+);
 
 // プレイヤー用の rig を作成してカメラはその子にする
 export const rig = new THREE.Group();
@@ -32,6 +67,9 @@ rig.position.set(0, 0, 0);
 rig.add(camera);
 scene.add(rig);
 
+// ============================================================
+// レンダラーの作成
+// ============================================================
 export const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
@@ -71,17 +109,40 @@ function onMouseClick(event) {
     }
 }
 
-// デバッグ用の移動速度
-const MOVE_SPEED = 0.1;
-const DEAD_ZONE = 0.15;
+// config.js から読み込んだ移動速度
+const MOVE_SPEED = movement.moveSpeed;
+const DEAD_ZONE = movement.deadZone;
 
+// ============================================================
+// 境界チェック関数
+// ============================================================
+// プレイヤーが壁の外に出ないようにする
+// ============================================================
+function checkBoundary(position) {
+    if (!wallSettings.enabled) return position;
+
+    const distance = Math.sqrt(position.x * position.x + position.z * position.z);
+    const maxDistance = wallSettings.boundaryRadius - 0.5; // 少し余裕を持たせる
+
+    if (distance > maxDistance) {
+        // 境界の内側に押し戻す
+        const angle = Math.atan2(position.x, position.z);
+        position.x = Math.sin(angle) * maxDistance;
+        position.z = Math.cos(angle) * maxDistance;
+    }
+
+    return position;
+}
+
+// ============================================================
 // アニメーションループ
+// ============================================================
 renderer.setAnimationLoop(() => {
     // --- キーボード操作（PC用、VR外） ---
     if (!renderer.xr.isPresenting) {
-        const speed = 0.1;
-        const rotSpeed = 0.03;
-        
+        const speed = movement.moveSpeed;
+        const rotSpeed = movement.rotationSpeed;
+
         if (keys['q'] || keys['Q']) cameraRotationY += rotSpeed;
         if (keys['e'] || keys['E']) cameraRotationY -= rotSpeed;
         rig.rotation.y = cameraRotationY;
@@ -93,8 +154,11 @@ renderer.setAnimationLoop(() => {
         if (keys['d'] || keys['D']) direction.x += speed;
         direction.applyEuler(rig.rotation);
         rig.position.add(direction);
+
+        // 境界チェック
+        checkBoundary(rig.position);
     }
-    
+
     // --- VRモード ---
     if (renderer.xr.isPresenting) {
         const session = renderer.xr.getSession();
@@ -138,6 +202,9 @@ renderer.setAnimationLoop(() => {
                         rig.position.addScaledVector(direction, -moveZ * MOVE_SPEED);
                         // スティック右 (moveX > 0) で右移動 (right)
                         rig.position.addScaledVector(right, moveX * MOVE_SPEED);
+
+                        // 境界チェック
+                        checkBoundary(rig.position);
                     }
                 }
             }
@@ -156,7 +223,7 @@ renderer.setAnimationLoop(() => {
 
                 if (axes.length >= 4) {
                     const rotateX = axes[axisMapping.thumbstickX]; // 右スティック左右 (axes[2])
-                    
+
                     if (Math.abs(rotateX) > DEAD_ZONE) {
                         // rigをY軸回転（スナップターン or スムーズターン）
                         rig.rotation.y -= rotateX * 0.02; // 感度調整可能
@@ -165,28 +232,94 @@ renderer.setAnimationLoop(() => {
             }
         }
     }
-    
+
     renderer.render(scene, camera);
 });
 
-// 照明
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(5, 10, 5);
+// ============================================================
+// 照明の設定
+// ============================================================
+// Step 6 で変更可能: lighting オブジェクト（config.js）
+// ============================================================
+
+// メインライト（太陽のような光）
+const light = new THREE.DirectionalLight(
+    lighting.mainLight.color,
+    lighting.mainLight.intensity
+);
+light.position.set(
+    lighting.mainLight.position.x,
+    lighting.mainLight.position.y,
+    lighting.mainLight.position.z
+);
 scene.add(light);
 
-const backLight = new THREE.DirectionalLight(0xffffff, 0.8);
-backLight.position.set(-5, 5, -5);
+// バックライト（後ろからの光）
+const backLight = new THREE.DirectionalLight(
+    lighting.backLight.color,
+    lighting.backLight.intensity
+);
+backLight.position.set(
+    lighting.backLight.position.x,
+    lighting.backLight.position.y,
+    lighting.backLight.position.z
+);
 scene.add(backLight);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+// 環境光（全体を均一に照らす）
+scene.add(new THREE.AmbientLight(
+    lighting.ambientLight.color,
+    lighting.ambientLight.intensity
+));
 
-// 地面
+// ============================================================
+// 地面の作成
+// ============================================================
+// Step 2 で変更: colors.groundColor（地面の色）
+// ============================================================
 const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(50, 50),
-    new THREE.MeshStandardMaterial({ color: 0x228B22 })
+    new THREE.PlaneGeometry(gameSettings.groundSize, gameSettings.groundSize),
+    new THREE.MeshStandardMaterial({ color: colors.groundColor })
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
+
+// ============================================================
+// 壁（境界）の作成
+// ============================================================
+// wallSettings で設定可能（config.js）
+// ============================================================
+function createWall() {
+    if (!wallSettings.enabled) return;
+
+    // 円筒形の壁を作成
+    const geometry = new THREE.CylinderGeometry(
+        wallSettings.boundaryRadius,  // 上部の半径
+        wallSettings.boundaryRadius,  // 下部の半径
+        wallSettings.height,          // 高さ
+        wallSettings.segments,        // 分割数
+        1,                            // 高さの分割数
+        true                          // オープンエンド（上下に蓋なし）
+    );
+
+    const material = new THREE.MeshStandardMaterial({
+        color: wallSettings.color,
+        transparent: true,
+        opacity: wallSettings.opacity,
+        side: THREE.DoubleSide,  // 両面表示
+    });
+
+    const wall = new THREE.Mesh(geometry, material);
+    wall.position.y = wallSettings.height / 2;
+    wall.name = 'boundary-wall';
+
+    if (wallSettings.visible) {
+        scene.add(wall);
+    }
+}
+
+// 壁を作成
+createWall();
 
 // resize ユーティリティ
 export function handleResize() {
@@ -228,7 +361,7 @@ export function initControllers() {
 
     // コントローラーモデルの追加
     const controllerModelFactory = new XRControllerModelFactory();
-    
+
     const controllerGrip1 = renderer.xr.getControllerGrip(0);
     controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
     rig.add(controllerGrip1);
@@ -244,7 +377,7 @@ export function initControllers() {
     ]);
     const line = new THREE.Line(
         geometry,
-        new THREE.LineBasicMaterial({ 
+        new THREE.LineBasicMaterial({
             color: 0x00ff00,
             transparent: true,
             opacity: 0.8
@@ -279,7 +412,7 @@ function getIntersections(controller) {
     tempMatrix.identity().extractRotation(controller.matrixWorld);
     raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-    
+
     // シーン内の全オブジェクトから、userData.isAnswerを持つものをフィルタリング
     const answerObjects = [];
     scene.traverse((object) => {
@@ -287,7 +420,7 @@ function getIntersections(controller) {
             answerObjects.push(object);
         }
     });
-    
+
     return raycaster.intersectObjects(answerObjects);
 }
 
