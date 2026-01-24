@@ -83,15 +83,15 @@ renderer.setAnimationLoop(() => {
         
         if (keys['q'] || keys['Q']) cameraRotationY += rotSpeed;
         if (keys['e'] || keys['E']) cameraRotationY -= rotSpeed;
-        camera.rotation.y = cameraRotationY;
+        rig.rotation.y = cameraRotationY;
 
         const direction = new THREE.Vector3();
         if (keys['w'] || keys['W']) direction.z -= speed;
         if (keys['s'] || keys['S']) direction.z += speed;
         if (keys['a'] || keys['A']) direction.x -= speed;
         if (keys['d'] || keys['D']) direction.x += speed;
-        direction.applyEuler(camera.rotation);
-        camera.position.add(direction);
+        direction.applyEuler(rig.rotation);
+        rig.position.add(direction);
     }
     
     // --- VRモード ---
