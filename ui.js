@@ -1,3 +1,18 @@
+// ============================================================
+// ui.js - UIパネルの作成
+// ============================================================
+// スコア表示、タイマー、操作説明などのUIを管理します。
+// 表示テキストは config.js で変更できます。
+// ============================================================
+
+// ============================================================
+// config.js から設定を読み込み
+// ============================================================
+import { uiText } from './config.js';
+
+// ============================================================
+// スコアを更新する関数
+// ============================================================
 export function updateScore(score) {
     const el = document.getElementById('score');
     if (el) el.textContent = `スコア: ${score}`;
@@ -7,7 +22,13 @@ export function updateScore(score) {
 let startTime = null;
 let timerInterval = null;
 
+// ============================================================
+// UIパネルを作成する関数
+// ============================================================
 export function createInfoPanel() {
+    // ============================================================
+    // 左上の情報パネル
+    // ============================================================
     const info = document.createElement('div');
     info.id = 'info';
     info.style.position = 'absolute';
@@ -18,7 +39,9 @@ export function createInfoPanel() {
     info.style.padding = '10px';
     info.style.borderRadius = '5px';
 
-    // タイマー表示用のパネル
+    // ============================================================
+    // 右上のタイマーパネル
+    // ============================================================
     const timerPanel = document.createElement('div');
     timerPanel.id = 'timer';
     timerPanel.style.position = 'absolute';
@@ -33,20 +56,33 @@ export function createInfoPanel() {
     timerPanel.textContent = '00:00.0';
     document.body.appendChild(timerPanel);
 
+    // ============================================================
+    // スコア表示
+    // ============================================================
     const scoreDiv = document.createElement('div');
     scoreDiv.id = 'score';
     scoreDiv.style.fontSize = '20px';
     scoreDiv.style.fontWeight = 'bold';
-    scoreDiv.style.color = '#FFD700';
-    scoreDiv.textContent = 'v0.19スコア: 0';
+    scoreDiv.style.color = '#FFD700';  // 金色
+    scoreDiv.textContent = `${uiText.version} スコア: 0`;
     info.appendChild(scoreDiv);
 
+    // ============================================================
+    // PC操作説明
+    // ============================================================
+    // uiText.pcControls で変更可能
+    // ============================================================
     const controls = document.createElement('div');
-    controls.textContent = 'PC: WASD移動 / QE左右回転 / クリックで回答';
+    controls.textContent = uiText.pcControls;
     info.appendChild(controls);
 
+    // ============================================================
+    // VR操作説明
+    // ============================================================
+    // uiText.vrControls で変更可能
+    // ============================================================
     const vr = document.createElement('div');
-    vr.textContent = 'Quest 3: VRボタンでVRモード開始';
+    vr.textContent = uiText.vrControls;
     info.appendChild(vr);
 
     document.body.appendChild(info);
@@ -55,6 +91,9 @@ export function createInfoPanel() {
     startTimer();
 }
 
+// ============================================================
+// タイマーを開始する関数
+// ============================================================
 export function startTimer() {
     if (startTime === null) {
         startTime = Date.now();
@@ -63,6 +102,9 @@ export function startTimer() {
     }
 }
 
+// ============================================================
+// タイマーを停止する関数
+// ============================================================
 export function stopTimer() {
     if (timerInterval !== null) {
         clearInterval(timerInterval);
@@ -70,6 +112,9 @@ export function stopTimer() {
     }
 }
 
+// ============================================================
+// タイマー表示を更新する関数（内部使用）
+// ============================================================
 function updateTimer() {
     const timerEl = document.getElementById('timer');
     if (!timerEl) return;
